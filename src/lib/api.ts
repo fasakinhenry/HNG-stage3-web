@@ -10,6 +10,7 @@ import type {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
 const API_VERSION = '1'
+const API_ROOT = '/api'
 
 let csrfToken = ''
 
@@ -61,7 +62,7 @@ async function ensureCsrfToken(): Promise<void> {
     return
   }
 
-  const response = await fetch(buildUrl('/api/v1/auth/csrf'), {
+  const response = await fetch(buildUrl(`${API_ROOT}/auth/csrf`), {
     method: 'GET',
     credentials: 'include',
   })
@@ -79,7 +80,7 @@ async function ensureCsrfToken(): Promise<void> {
 async function refreshSession(): Promise<void> {
   await ensureCsrfToken()
 
-  const response = await fetch(buildUrl('/api/v1/auth/refresh'), {
+  const response = await fetch(buildUrl(`${API_ROOT}/auth/refresh`), {
     method: 'POST',
     credentials: 'include',
     headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : undefined,
@@ -96,6 +97,7 @@ async function requestJson<T>(
   path: string,
   init: RequestInit = {},
   requiresVersion = true,
+  retryOnUnauthorized = true,
   retried = false
 ): Promise<T> {
   const method = (init.method || 'GET').toUpperCase()
@@ -123,9 +125,14 @@ async function requestJson<T>(
     headers,
   })
 
-  if (response.status === 401 && !retried && path !== '/api/v1/auth/refresh') {
+  if (
+    retryOnUnauthorized &&
+    response.status === 401 &&
+    !retried &&
+    path !== `${API_ROOT}/auth/refresh`
+  ) {
     await refreshSession()
-    return requestJson(path, init, requiresVersion, true)
+    return requestJson(path, init, requiresVersion, retryOnUnauthorized, true)
   }
 
   return parseResponse<T>(response)
@@ -162,22 +169,22 @@ async function requestBlob(path: string): Promise<Blob> {
 }
 
 export const api = {
-  loginUrl: buildUrl('/api/v1/auth/github'),
+  loginUrl: buildUrl(`${API_ROOT}/auth/github`),
 
   async getMe() {
-    return requestJson<SingleResponse<User>>('/api/v1/auth/me', {}, false)
+    return requestJson<SingleResponse<User>>(`${API_ROOT}/auth/me`, {}, false, false)
   },
 
   async logout() {
-    return requestJson<MessageResponse>('/api/v1/auth/logout', { method: 'POST' }, false)
+    return requestJson<MessageResponse>(`${API_ROOT}/auth/logout`, { method: 'POST' }, false)
   },
 
   async getProfiles(params: Record<string, string | number | undefined>) {
-    return requestJson<PaginatedResponse<Profile>>(`/api/v1/profiles${toQuery(params)}`)
+    return requestJson<PaginatedResponse<Profile>>(`${API_ROOT}/profiles${toQuery(params)}`)
   },
 
   async getProfile(id: string) {
-    return requestJson<SingleResponse<Profile>>(`/api/v1/profiles/${id}`)
+    return requestJson<SingleResponse<Profile>>(`${API_ROOT}/profiles/${id}`)
   },
 
   async searchProfiles(
@@ -185,18 +192,18 @@ export const api = {
     params: Record<string, string | number | undefined>
   ) {
     return requestJson<PaginatedResponse<Profile>>(
-      `/api/v1/profiles/search${toQuery({ q, ...params })}`
+      `${API_ROOT}/profiles/search${toQuery({ q, ...params })}`
     )
   },
 
   async createProfile(name: string) {
-    return requestJson<SingleResponse<Profile>>('/api/v1/profiles', {
+    return requestJson<SingleResponse<Profile>>(`${API_ROOT}/profiles`, {
       method: 'POST',
       body: JSON.stringify({ name }),
     })
   },
 
   async exportProfilesCsv(params: Record<string, string | number | undefined>) {
-    return requestBlob(`/api/v1/profiles/export${toQuery({ format: 'csv', ...params })}`)
+    return requestBlob(`${API_ROOT}/profiles/export${toQuery({ format: 'csv', ...params })}`)
   },
 }
