@@ -11,6 +11,7 @@ import type {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
 const API_VERSION = '1'
 const API_ROOT = '/api'
+const AUTH_ROOT = '/auth'
 
 let csrfToken = ''
 
@@ -62,7 +63,7 @@ async function ensureCsrfToken(): Promise<void> {
     return
   }
 
-  const response = await fetch(buildUrl(`${API_ROOT}/auth/csrf`), {
+  const response = await fetch(buildUrl(`${AUTH_ROOT}/csrf`), {
     method: 'GET',
     credentials: 'include',
   })
@@ -80,7 +81,7 @@ async function ensureCsrfToken(): Promise<void> {
 async function refreshSession(): Promise<void> {
   await ensureCsrfToken()
 
-  const response = await fetch(buildUrl(`${API_ROOT}/auth/refresh`), {
+  const response = await fetch(buildUrl(`${AUTH_ROOT}/refresh`), {
     method: 'POST',
     credentials: 'include',
     headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : undefined,
@@ -129,7 +130,7 @@ async function requestJson<T>(
     retryOnUnauthorized &&
     response.status === 401 &&
     !retried &&
-    path !== `${API_ROOT}/auth/refresh`
+    path !== `${AUTH_ROOT}/refresh`
   ) {
     await refreshSession()
     return requestJson(path, init, requiresVersion, retryOnUnauthorized, true)
@@ -169,14 +170,14 @@ async function requestBlob(path: string): Promise<Blob> {
 }
 
 export const api = {
-  loginUrl: buildUrl(`${API_ROOT}/auth/github`),
+  loginUrl: buildUrl(`${AUTH_ROOT}/github`),
 
   async getMe() {
-    return requestJson<SingleResponse<User>>(`${API_ROOT}/auth/me`, {}, false, false)
+    return requestJson<SingleResponse<User>>(`${AUTH_ROOT}/me`, {}, false, false)
   },
 
   async logout() {
-    return requestJson<MessageResponse>(`${API_ROOT}/auth/logout`, { method: 'POST' }, false)
+    return requestJson<MessageResponse>(`${AUTH_ROOT}/logout`, { method: 'POST' }, false)
   },
 
   async getProfiles(params: Record<string, string | number | undefined>) {
